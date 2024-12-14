@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
 from tkinter import simpledialog, messagebox
@@ -28,7 +27,7 @@ def initialize_database():
     conn.close()
 
 
-def set_teacher_name():
+def set_teacher_name(event):
     global teacher_name, teacher_name_label
     name = simpledialog.askstring("담임교사 성명 등록", "담임교사 성명을 입력해주세요:")
     if name:
@@ -36,12 +35,12 @@ def set_teacher_name():
         teacher_name_label.config(text=f"담임교사 성명: {teacher_name}")
 
 
-def edit_teacher_name():
-    set_teacher_name()
+def edit_teacher_name(event):
+    set_teacher_name(event)
 
 
 # 데이터 초기화 함수
-def reset_database():
+def reset_database(event):
     if messagebox.askyesno("데이터 초기화", "정말로 모든 데이터를 초기화하시겠습니까?"):
         conn = sqlite3.connect("attendance.db")
         cursor = conn.cursor()
@@ -53,7 +52,7 @@ def reset_database():
 
 
 # 결석 데이터 저장
-def save_absence():
+def save_absence(event=None):
     name = name_entry.get()
     start_year = start_year_combobox.get()
     start_month = start_month_combobox.get()
@@ -112,7 +111,7 @@ def display_absences():
         tree.insert("", tk.END, values=row, iid=row[0])
 
 
-def delete_absence():
+def delete_absence(event):
     selected_item = tree.selection()
     if not selected_item:
         messagebox.showwarning("선택 오류", "삭제할 항목을 선택해주세요.")
@@ -129,7 +128,7 @@ def delete_absence():
         tree.delete(item)
 
 
-def edit_absence():
+def edit_absence(event):
     selected_item = tree.selection()
     if not selected_item:
         messagebox.showwarning("선택 오류", "수정할 항목을 선택해주세요.")
@@ -206,7 +205,7 @@ def extract_date_info(from_date, to_date):
     return period_information
 
 
-def generate_absence_report():
+def generate_absence_report(event=None):
     conn = sqlite3.connect("attendance.db")
     query = (
         "SELECT id, name, start_date, end_date, reason, detailed_reason FROM absences"
@@ -296,20 +295,26 @@ def generate_absence_report():
     hwp.quit()
 
 
-def show_absence_frame():
+def show_absence_frame(event=None):
     main_frame.pack_forget()
     abs_frame.pack(fill="both", expand=True)
     display_absences()
 
 
-def show_main_frame():
+def show_main_frame(event=None):
     abs_frame.pack_forget()
     main_frame.pack(fill="both", expand=True)
 
 
 root = tk.Tk()
-root.title("화면 전환 예제")
-root.geometry("1200x800")
+root.title("결석계 자동 생성기")
+root.geometry("800x800")
+
+# Create a style
+style = ttk.Style(root)
+
+# Set the theme with the theme_use method
+style.theme_use("clam")  # put the theme name here, that you want to use
 
 initialize_database()
 
@@ -317,113 +322,142 @@ initialize_database()
 main_frame = tk.Frame(root)
 main_frame.pack(fill="both", expand=True)
 
-main_label = tk.Label(main_frame, text="메인 화면", font=("Arial", 16))
+main_label = tk.Label(
+    main_frame,
+    text="메인 화면",
+    font=("Arial", 20),
+)
 main_label.pack(pady=20)
 
 teacher_name_label = tk.Label(
-    main_frame, text="담임교사 성명: 없음", font=("Arial", 12)
+    main_frame, text="담임교사 성명: 없음", font=("Arial", 14)
 )
-teacher_name_label.pack(pady=5)
+teacher_name_label.pack(pady=20)
 
 set_teacher_button = tk.Button(
-    main_frame, text="담임교사 성명 등록", command=set_teacher_name
+    main_frame,
+    text="담임교사 성명 등록 [F1]",
+    font=("Arial", 14),
+    command=set_teacher_name,
 )
-set_teacher_button.pack(pady=5)
+set_teacher_button.pack(pady=20)
+root.bind("<F1>", set_teacher_name)
 
 edit_teacher_button = tk.Button(
-    main_frame, text="담임교사 성명 수정", command=edit_teacher_name
+    main_frame,
+    text="담임교사 성명 수정 [F2]",
+    font=("Arial", 14),
+    command=edit_teacher_name,
 )
-edit_teacher_button.pack(pady=5)
+edit_teacher_button.pack(pady=20)
+root.bind("<F2>", edit_teacher_name)
 
 reset_button = tk.Button(
-    main_frame, text="결석생 데이터 초기화", command=reset_database
+    main_frame,
+    text="결석생 데이터 초기화 [F3]",
+    font=("Arial", 14),
+    command=reset_database,
 )
 reset_button.pack(pady=10)
+root.bind("<F3>", reset_database)
 
-register_button = tk.Button(main_frame, text="결석생 등록", command=show_absence_frame)
+register_button = tk.Button(
+    main_frame, text="결석생 등록 [F4]", font=("Arial", 14), command=show_absence_frame
+)
 register_button.pack(pady=10)
+root.bind("<F4>", show_absence_frame)
 
 report_button = tk.Button(
-    main_frame, text="결석계 생성", command=generate_absence_report
+    main_frame,
+    text="결석계 생성 [F5]",
+    font=("Arial", 14),
+    command=generate_absence_report,
 )
 report_button.pack(pady=10)
+root.bind("<F5>", generate_absence_report)
+
+creator_banner = tk.Label(main_frame, text="Created by tubiky", font=("Arial", 10))
+creator_banner.pack(fill="x", anchor="se", padx=10, pady=100)
 
 # 결석생 등록 화면
 abs_frame = tk.Frame(root)
 
-abs_label = tk.Label(abs_frame, text="결석생 등록 화면", font=("Arial", 16))
+abs_label = tk.Label(abs_frame, text="결석생 등록 화면", font=("Arial", 20))
 abs_label.pack(pady=20)
 
 # 이름 입력
-name_label = tk.Label(abs_frame, text="이름:")
+name_label = tk.Label(abs_frame, text="이름:", font=("Arial", 14))
 name_label.pack(anchor="w", padx=10)
-name_entry = tk.Entry(abs_frame)
-name_entry.pack(fill="x", padx=10)
+name_entry = ttk.Entry(
+    abs_frame,
+)
+name_entry.pack(fill="x", ipadx=30, ipady=6, padx=10, pady=10)
 
 # 결석 기간 입력
-period_label = tk.Label(abs_frame, text="결석 기간 (시작일):")
+period_label = tk.Label(abs_frame, text="결석 기간 (시작일):", font=("Arial", 14))
 period_label.pack(anchor="w", padx=10)
 
 frame_start_date = tk.Frame(abs_frame)
 frame_start_date.pack(fill="x", padx=10)
 
 start_year_combobox = ttk.Combobox(
-    frame_start_date, values=[str(y) for y in range(2000, 2031)], width=5
+    frame_start_date, values=[str(y) for y in range(2024, 2050)], width=5, height=18
 )
-start_year_combobox.pack(side="left")
+start_year_combobox.pack(side="left", pady=10)
 start_year_combobox.set("연")
 
 start_month_combobox = ttk.Combobox(
-    frame_start_date, values=[f"{m:02}" for m in range(1, 13)], width=3
+    frame_start_date, values=[f"{m:02}" for m in range(1, 13)], width=4, height=18
 )
-start_month_combobox.pack(side="left", padx=5)
+start_month_combobox.pack(side="left", padx=5, pady=10)
 start_month_combobox.set("월")
 
 start_day_combobox = ttk.Combobox(
-    frame_start_date, values=[f"{d:02}" for d in range(1, 32)], width=3
+    frame_start_date, values=[f"{d:02}" for d in range(1, 32)], width=4, height=18
 )
-start_day_combobox.pack(side="left")
+start_day_combobox.pack(side="left", pady=10)
 start_day_combobox.set("일")
 
-period_end_label = tk.Label(abs_frame, text="결석 기간 (종료일):")
+period_end_label = tk.Label(abs_frame, text="결석 기간 (종료일):", font=("Arial", 14))
 period_end_label.pack(anchor="w", padx=10)
 
 frame_end_date = tk.Frame(abs_frame)
 frame_end_date.pack(fill="x", padx=10)
 
 end_year_combobox = ttk.Combobox(
-    frame_end_date, values=[str(y) for y in range(2000, 2031)], width=5
+    frame_end_date, values=[str(y) for y in range(2024, 2050)], width=5
 )
-end_year_combobox.pack(side="left")
+end_year_combobox.pack(side="left", pady=10)
 end_year_combobox.set("")
 
 end_month_combobox = ttk.Combobox(
-    frame_end_date, values=[f"{m:02}" for m in range(1, 13)], width=3
+    frame_end_date, values=[f"{m:02}" for m in range(1, 13)], width=4
 )
-end_month_combobox.pack(side="left", padx=5)
+end_month_combobox.pack(side="left", padx=5, pady=10)
 end_month_combobox.set("")
 
 end_day_combobox = ttk.Combobox(
-    frame_end_date, values=[f"{d:02}" for d in range(1, 32)], width=3
+    frame_end_date, values=[f"{d:02}" for d in range(1, 32)], width=4
 )
-end_day_combobox.pack(side="left")
+end_day_combobox.pack(side="left", pady=10)
 end_day_combobox.set("")
 
 # 결석 종류 선택
-reason_label = tk.Label(abs_frame, text="결석 종류:")
+reason_label = tk.Label(abs_frame, text="결석 종류:", font=("Arial", 14))
 reason_label.pack(anchor="w", padx=10)
 reason_combobox = ttk.Combobox(abs_frame, values=["인정", "질병", "기타"])
-reason_combobox.pack(fill="x", padx=10)
+reason_combobox.pack(fill="x", ipadx=30, ipady=6, padx=10, pady=10)
 
 # 상세 사유 입력
-detailed_reason_label = tk.Label(abs_frame, text="결석 사유:")
+detailed_reason_label = tk.Label(abs_frame, text="결석 사유:", font=("Arial", 14))
 detailed_reason_label.pack(anchor="w", padx=10)
-detailed_reason_entry = tk.Entry(abs_frame)
-detailed_reason_entry.pack(fill="x", padx=10)
+detailed_reason_entry = ttk.Entry(abs_frame)
+detailed_reason_entry.pack(fill="x", ipadx=30, ipady=6, padx=10, pady=10)
 
 # 저장 버튼
-save_button = tk.Button(abs_frame, text="결석생 등록", command=save_absence)
+save_button = tk.Button(abs_frame, text="결석생 등록[Enter]", command=save_absence)
 save_button.pack(pady=10)
+root.bind("<Return>", save_absence)
 
 # 데이터 표시
 tree = ttk.Treeview(
@@ -432,24 +466,35 @@ tree = ttk.Treeview(
     show="headings",
 )
 tree.heading("id", text="ID")
+tree.column("id", width=50, anchor="center")
 tree.heading("name", text="이름")
+tree.column("name", width=50, anchor="center")
 tree.heading("start_date", text="결석 시작일")
+tree.column("start_date", width=50, anchor="center")
 tree.heading("end_date", text="결석 종료일")
+tree.column("end_date", width=50, anchor="center")
 tree.heading("reason", text="결석 종류")
-tree.heading("detailed_reason", text="결석 사유")
-tree.column("id", width=50)
+tree.column("reason", width=50, anchor="center")
+tree.heading("detailed_reason", text="결석 사유", anchor="center")
+tree.column("detailed_reason", width=50, anchor="center")
 tree.pack(fill="both", expand=True, padx=10, pady=10)
 
 # 삭제 버튼
-delete_button = tk.Button(abs_frame, text="삭제", command=delete_absence)
+delete_button = tk.Button(abs_frame, text="삭제[Ctrl+d]", command=delete_absence)
 delete_button.pack(side="left", padx=10, pady=10)
+root.bind("<Control-d>", delete_absence)
+root.bind("<Control-D>", delete_absence)
 
 # 수정 버튼
-edit_button = tk.Button(abs_frame, text="수정", command=edit_absence)
+edit_button = tk.Button(abs_frame, text="수정[Ctrl+m]", command=edit_absence)
 edit_button.pack(side="left", padx=10, pady=10)
+root.bind("<Control-m>", edit_absence)
+root.bind("<Control-M>", edit_absence)
 
 # 돌아가기 버튼
-back_button = tk.Button(abs_frame, text="돌아가기", command=show_main_frame)
+back_button = tk.Button(abs_frame, text="돌아가기[Ctrl+b]", command=show_main_frame)
 back_button.pack(side="right", padx=10, pady=10)
+root.bind("<Control-b>", show_main_frame)
+root.bind("<Control-B>", show_main_frame)
 
 root.mainloop()
