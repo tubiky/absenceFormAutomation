@@ -1,25 +1,33 @@
+import os
+from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
 from tkinter import simpledialog, messagebox
 import sqlite3
 import pandas as pd
+from pyhwpx import Hwp
+
+# 담임교사 성명 설정
+teacher_name = ""
+
 
 # 데이터베이스 초기화
 def initialize_database():
     conn = sqlite3.connect("attendance.db")
     cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS absences (
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS absences (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL,
                         start_date TEXT NOT NULL,
                         end_date TEXT NOT NULL,
                         reason TEXT NOT NULL,
-                        detailed_reason TEXT)''')
+                        detailed_reason TEXT)"""
+    )
     conn.commit()
     conn.close()
 
-# 담임교사 성명 설정
-teacher_name = ""
+
 def set_teacher_name():
     global teacher_name, teacher_name_label
     name = simpledialog.askstring("담임교사 성명 등록", "담임교사 성명을 입력해주세요:")
@@ -27,8 +35,10 @@ def set_teacher_name():
         teacher_name = name
         teacher_name_label.config(text=f"담임교사 성명: {teacher_name}")
 
+
 def edit_teacher_name():
     set_teacher_name()
+
 
 # 데이터 초기화 함수
 def reset_database():
@@ -40,6 +50,7 @@ def reset_database():
         conn.close()
         display_absences()
         messagebox.showinfo("초기화 완료", "모든 데이터가 초기화되었습니다.")
+
 
 # 결석 데이터 저장
 def save_absence():
@@ -65,7 +76,10 @@ def save_absence():
 
     conn = sqlite3.connect("attendance.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO absences (name, start_date, end_date, reason, detailed_reason) VALUES (?, ?, ?, ?, ?)", (name, start_date, end_date, reason, detailed_reason))
+    cursor.execute(
+        "INSERT INTO absences (name, start_date, end_date, reason, detailed_reason) VALUES (?, ?, ?, ?, ?)",
+        (name, start_date, end_date, reason, detailed_reason),
+    )
     conn.commit()
     conn.close()
 
@@ -80,6 +94,7 @@ def save_absence():
     reason_combobox.set("")
     detailed_reason_entry.delete(0, tk.END)
 
+
 # 저장된 데이터 표시
 def display_absences():
     for row in tree.get_children():
@@ -87,12 +102,15 @@ def display_absences():
 
     conn = sqlite3.connect("attendance.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, start_date, end_date, reason, detailed_reason FROM absences")
+    cursor.execute(
+        "SELECT id, name, start_date, end_date, reason, detailed_reason FROM absences"
+    )
     rows = cursor.fetchall()
     conn.close()
 
     for row in rows:
         tree.insert("", tk.END, values=row, iid=row[0])
+
 
 def delete_absence():
     selected_item = tree.selection()
@@ -103,10 +121,13 @@ def delete_absence():
     for item in selected_item:
         conn = sqlite3.connect("attendance.db")
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM absences WHERE id = ?", (tree.item(item)['values'][0],))
+        cursor.execute(
+            "DELETE FROM absences WHERE id = ?", (tree.item(item)["values"][0],)
+        )
         conn.commit()
         conn.close()
         tree.delete(item)
+
 
 def edit_absence():
     selected_item = tree.selection()
@@ -115,7 +136,7 @@ def edit_absence():
         return
 
     item_id = selected_item[0]
-    values = tree.item(item_id)['values']
+    values = tree.item(item_id)["values"]
 
     name_entry.delete(0, tk.END)
     name_entry.insert(0, values[1])
@@ -157,7 +178,10 @@ def edit_absence():
 
         conn = sqlite3.connect("attendance.db")
         cursor = conn.cursor()
-        cursor.execute("UPDATE absences SET name = ?, start_date = ?, end_date = ?, reason = ?, detailed_reason = ? WHERE id = ?", (name, start_date, end_date, reason, detailed_reason, values[0]))
+        cursor.execute(
+            "UPDATE absences SET name = ?, start_date = ?, end_date = ?, reason = ?, detailed_reason = ? WHERE id = ?",
+            (name, start_date, end_date, reason, detailed_reason, values[0]),
+        )
         conn.commit()
         conn.close()
 
@@ -167,25 +191,125 @@ def edit_absence():
     update_button = tk.Button(abs_frame, text="업데이트", command=update_absence)
     update_button.pack(pady=10)
 
+
+def extract_date_info(from_date, to_date):
+    period_information = {}
+    day_from = from_date.day
+    day_to = to_date.day
+    period_information["year"] = str(from_date.year)
+    period_information["month"] = str(from_date.month)
+    period_information["day_from"] = str(from_date.day)
+    period_information["day_to"] = str(to_date.day)
+    period_information["for_day"] = str(int(day_to + 1) - int(day_from))
+    period_information["weekday"] = str(from_date.strftime("%a"))
+
+    return period_information
+
+
 def generate_absence_report():
     conn = sqlite3.connect("attendance.db")
-    query = "SELECT id, name, start_date, end_date, reason, detailed_reason FROM absences"
+    query = (
+        "SELECT id, name, start_date, end_date, reason, detailed_reason FROM absences"
+    )
     df = pd.read_sql_query(query, conn)
+
+    df = df.astype({"start_date": "datetime64[ns]", "end_date": "datetime64[ns]"})
     conn.close()
-    print(df)
+
+    current_path = os.getcwd()
+
+    # 양식 파일과 hwp 개체 연결하기
+    hwp = Hwp(new=True, visible=True)
+    hwp.Open(current_path + "/hwp_file_form/결석계.hwp")
+    hwp.MoveDocEnd()
+    hwp.CopyPage()
+
+    # 결석생 데이터 만큼 결석계표 복사하기
+    num_of_absent_students = len(df)
+
+    for _ in range(num_of_absent_students):
+        hwp.Paste()
+
+    # 반복문을 활용하여 각 결석계의 양식에 데이터 입력하기
+    for n in range(num_of_absent_students):
+        student_name = df.iloc[n]["name"]
+        from_day = df.iloc[n]["start_date"]
+        until_day = df.iloc[n]["end_date"]
+        absence_type = df.iloc[n]["reason"]
+        detailed_absence_reason = df.iloc[n]["detailed_reason"]
+
+        # 담임 교사 이름 입력
+        hwp.move_to_field(f"teacher_name{{{{{n}}}}}")
+        hwp.insert_text(teacher_name)
+
+        # 학생 이름 입력
+        hwp.move_to_field(f"name{{{{{n}}}}}")
+        hwp.insert_text(student_name)
+
+        # 결석 종류 입력
+        hwp.move_to_field(f"absence_type{{{{{n}}}}}")
+        if absence_type == "질병":
+            hwp.insert_text("인정 (   )   질병 ( O )   기타 (   )")
+        elif absence_type == "인정":
+            hwp.insert_text("인정 ( O )   질병 (   )   기타 (   )")
+        elif absence_type == "기타":
+            hwp.insert_text("인정 (   )   질병 (   )   기타 ( O )")
+        else:
+            pass
+        # 상세 결석 사유 입력
+        hwp.move_to_field(f"detailed_reason{{{{{n}}}}}")
+        hwp.insert_text(detailed_absence_reason)
+
+        # 요일 및 기간을 계산하는 함수 필요
+        hwp.move_to_field(f"period{{{{{n}}}}}")
+
+        date_info = extract_date_info(from_day, until_day)
+
+        period_string = (
+            date_info["year"]
+            + "년 "
+            + date_info["month"]
+            + "월 "
+            + date_info["day_from"]
+            + "일 "
+            + "["
+            + date_info["weekday"]
+            + "] - "
+            + date_info["year"]
+            + "년 "
+            + date_info["month"]
+            + "월 "
+            + date_info["day_to"]
+            + "일 "
+            + "["
+            + date_info["weekday"]
+            + "]("
+            + date_info["for_day"]
+            + "일간)"
+        )
+        hwp.insert_text(period_string)
+
+    # 다른이름으로 저장
+    hwp.save_as("./결석계 " + date_info["month"] + "월.hwp")
+
+    # 한/글 종료
+    hwp.quit()
+
 
 def show_absence_frame():
     main_frame.pack_forget()
     abs_frame.pack(fill="both", expand=True)
     display_absences()
 
+
 def show_main_frame():
     abs_frame.pack_forget()
     main_frame.pack(fill="both", expand=True)
 
+
 root = tk.Tk()
 root.title("화면 전환 예제")
-root.geometry("900x600")
+root.geometry("1200x800")
 
 initialize_database()
 
@@ -196,22 +320,32 @@ main_frame.pack(fill="both", expand=True)
 main_label = tk.Label(main_frame, text="메인 화면", font=("Arial", 16))
 main_label.pack(pady=20)
 
-teacher_name_label = tk.Label(main_frame, text="담임교사 성명: 없음", font=("Arial", 12))
+teacher_name_label = tk.Label(
+    main_frame, text="담임교사 성명: 없음", font=("Arial", 12)
+)
 teacher_name_label.pack(pady=5)
 
-set_teacher_button = tk.Button(main_frame, text="담임교사 성명 등록", command=set_teacher_name)
+set_teacher_button = tk.Button(
+    main_frame, text="담임교사 성명 등록", command=set_teacher_name
+)
 set_teacher_button.pack(pady=5)
 
-edit_teacher_button = tk.Button(main_frame, text="담임교사 성명 수정", command=edit_teacher_name)
+edit_teacher_button = tk.Button(
+    main_frame, text="담임교사 성명 수정", command=edit_teacher_name
+)
 edit_teacher_button.pack(pady=5)
 
-reset_button = tk.Button(main_frame, text="결석생 데이터 초기화", command=reset_database)
+reset_button = tk.Button(
+    main_frame, text="결석생 데이터 초기화", command=reset_database
+)
 reset_button.pack(pady=10)
 
 register_button = tk.Button(main_frame, text="결석생 등록", command=show_absence_frame)
 register_button.pack(pady=10)
 
-report_button = tk.Button(main_frame, text="결석계 생성", command=generate_absence_report)
+report_button = tk.Button(
+    main_frame, text="결석계 생성", command=generate_absence_report
+)
 report_button.pack(pady=10)
 
 # 결석생 등록 화면
@@ -233,15 +367,21 @@ period_label.pack(anchor="w", padx=10)
 frame_start_date = tk.Frame(abs_frame)
 frame_start_date.pack(fill="x", padx=10)
 
-start_year_combobox = ttk.Combobox(frame_start_date, values=[str(y) for y in range(2000, 2031)], width=5)
+start_year_combobox = ttk.Combobox(
+    frame_start_date, values=[str(y) for y in range(2000, 2031)], width=5
+)
 start_year_combobox.pack(side="left")
 start_year_combobox.set("연")
 
-start_month_combobox = ttk.Combobox(frame_start_date, values=[f"{m:02}" for m in range(1, 13)], width=3)
+start_month_combobox = ttk.Combobox(
+    frame_start_date, values=[f"{m:02}" for m in range(1, 13)], width=3
+)
 start_month_combobox.pack(side="left", padx=5)
 start_month_combobox.set("월")
 
-start_day_combobox = ttk.Combobox(frame_start_date, values=[f"{d:02}" for d in range(1, 32)], width=3)
+start_day_combobox = ttk.Combobox(
+    frame_start_date, values=[f"{d:02}" for d in range(1, 32)], width=3
+)
 start_day_combobox.pack(side="left")
 start_day_combobox.set("일")
 
@@ -251,15 +391,21 @@ period_end_label.pack(anchor="w", padx=10)
 frame_end_date = tk.Frame(abs_frame)
 frame_end_date.pack(fill="x", padx=10)
 
-end_year_combobox = ttk.Combobox(frame_end_date, values=[str(y) for y in range(2000, 2031)], width=5)
+end_year_combobox = ttk.Combobox(
+    frame_end_date, values=[str(y) for y in range(2000, 2031)], width=5
+)
 end_year_combobox.pack(side="left")
 end_year_combobox.set("")
 
-end_month_combobox = ttk.Combobox(frame_end_date, values=[f"{m:02}" for m in range(1, 13)], width=3)
+end_month_combobox = ttk.Combobox(
+    frame_end_date, values=[f"{m:02}" for m in range(1, 13)], width=3
+)
 end_month_combobox.pack(side="left", padx=5)
 end_month_combobox.set("")
 
-end_day_combobox = ttk.Combobox(frame_end_date, values=[f"{d:02}" for d in range(1, 32)], width=3)
+end_day_combobox = ttk.Combobox(
+    frame_end_date, values=[f"{d:02}" for d in range(1, 32)], width=3
+)
 end_day_combobox.pack(side="left")
 end_day_combobox.set("")
 
@@ -280,7 +426,11 @@ save_button = tk.Button(abs_frame, text="결석생 등록", command=save_absence
 save_button.pack(pady=10)
 
 # 데이터 표시
-tree = ttk.Treeview(abs_frame, columns=("id", "name", "start_date", "end_date", "reason", "detailed_reason"), show="headings")
+tree = ttk.Treeview(
+    abs_frame,
+    columns=("id", "name", "start_date", "end_date", "reason", "detailed_reason"),
+    show="headings",
+)
 tree.heading("id", text="ID")
 tree.heading("name", text="이름")
 tree.heading("start_date", text="결석 시작일")
