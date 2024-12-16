@@ -27,7 +27,7 @@ def initialize_database():
     conn.close()
 
 
-def set_teacher_name(event):
+def set_teacher_name(*args):
     global teacher_name, teacher_name_label
     name = simpledialog.askstring("담임교사 성명 등록", "담임교사 성명을 입력해주세요:")
     if name:
@@ -35,12 +35,12 @@ def set_teacher_name(event):
         teacher_name_label.config(text=f"담임교사 성명: {teacher_name}")
 
 
-def edit_teacher_name(event):
-    set_teacher_name(event)
+def edit_teacher_name(*args):
+    set_teacher_name()
 
 
 # 데이터 초기화 함수
-def reset_database(event):
+def reset_database(*args):
     if messagebox.askyesno("데이터 초기화", "정말로 모든 데이터를 초기화하시겠습니까?"):
         conn = sqlite3.connect("attendance.db")
         cursor = conn.cursor()
@@ -52,7 +52,7 @@ def reset_database(event):
 
 
 # 결석 데이터 저장
-def save_absence(event=None):
+def save_absence(*args):
     name = name_entry.get()
     start_year = start_year_combobox.get()
     start_month = start_month_combobox.get()
@@ -111,7 +111,7 @@ def display_absences():
         tree.insert("", tk.END, values=row, iid=row[0])
 
 
-def delete_absence(event):
+def delete_absence(*args):
     selected_item = tree.selection()
     if not selected_item:
         messagebox.showwarning("선택 오류", "삭제할 항목을 선택해주세요.")
@@ -128,7 +128,7 @@ def delete_absence(event):
         tree.delete(item)
 
 
-def edit_absence(event):
+def edit_absence(*args):
     selected_item = tree.selection()
     if not selected_item:
         messagebox.showwarning("선택 오류", "수정할 항목을 선택해주세요.")
@@ -193,6 +193,7 @@ def edit_absence(event):
 
 def extract_date_info(from_date, to_date):
     period_information = {}
+
     day_from = from_date.day
     day_to = to_date.day
     period_information["year"] = str(from_date.year)
@@ -201,11 +202,14 @@ def extract_date_info(from_date, to_date):
     period_information["day_to"] = str(to_date.day)
     period_information["for_day"] = str(int(day_to + 1) - int(day_from))
     period_information["weekday"] = str(from_date.strftime("%a"))
+    period_information["confirmed_date"] = (
+        to_date + pd.Timedelta(days=3) if to_date.strftime("%a") == "Fri" else to_date
+    )
 
     return period_information
 
 
-def generate_absence_report(event=None):
+def generate_absence_report(*args):
     conn = sqlite3.connect("attendance.db")
     query = (
         "SELECT id, name, start_date, end_date, reason, detailed_reason FROM absences"
@@ -213,6 +217,11 @@ def generate_absence_report(event=None):
     df = pd.read_sql_query(query, conn)
 
     df = df.astype({"start_date": "datetime64[ns]", "end_date": "datetime64[ns]"})
+
+    # Localize to UTC timezone
+    df["start_date"] = df["start_date"].dt.tz_localize("UTC")
+    df["end_date"] = df["end_date"].dt.tz_localize("UTC")
+
     conn.close()
 
     current_path = os.getcwd()
@@ -238,7 +247,9 @@ def generate_absence_report(event=None):
         detailed_absence_reason = df.iloc[n]["detailed_reason"]
 
         # 담임 교사 이름 입력
-        hwp.move_to_field(f"teacher_name{{{{{n}}}}}")
+        hwp.move_to_field(f"teacher_name_1{{{{{n}}}}}")
+        hwp.insert_text(teacher_name)
+        hwp.move_to_field(f"teacher_name_2{{{{{n}}}}}")
         hwp.insert_text(teacher_name)
 
         # 학생 이름 입력
@@ -263,8 +274,7 @@ def generate_absence_report(event=None):
         hwp.move_to_field(f"period{{{{{n}}}}}")
 
         date_info = extract_date_info(from_day, until_day)
-
-        period_string = (
+        start_date = (
             date_info["year"]
             + "년 "
             + date_info["month"]
@@ -273,8 +283,10 @@ def generate_absence_report(event=None):
             + "일 "
             + "["
             + date_info["weekday"]
-            + "] - "
-            + date_info["year"]
+            + "]"
+        )
+        end_date = (
+            date_info["year"]
             + "년 "
             + date_info["month"]
             + "월 "
@@ -282,26 +294,56 @@ def generate_absence_report(event=None):
             + "일 "
             + "["
             + date_info["weekday"]
-            + "]("
-            + date_info["for_day"]
-            + "일간)"
+            + "]"
         )
+
+        absence_period = "(" + date_info["for_day"] + "일간)"
+        period_string = start_date + " - " + end_date + absence_period
         hwp.insert_text(period_string)
+
+        # 요일 및 기간을 계산하는 함수 필요
+        confirmed_date_string = (
+            str(date_info["confirmed_date"].year)
+            + "년 "
+            + str(date_info["confirmed_date"].month)
+            + "월 "
+            + str(date_info["confirmed_date"].day)
+            + "일"
+        )
+        hwp.move_to_field(f"confirmed_date_1{{{{{n}}}}}")
+        hwp.insert_text(confirmed_date_string)
+        hwp.move_to_field(f"confirmed_date_2{{{{{n}}}}}")
+        hwp.insert_text(confirmed_date_string)
+
+    convert_engWeekdays_to_korWeekdays(hwp)
 
     # 다른이름으로 저장
     hwp.save_as("./결석계 " + date_info["month"] + "월.hwp")
 
-    # 한/글 종료
-    hwp.quit()
+
+def convert_engWeekdays_to_korWeekdays(hwpObject):
+    target_document = hwpObject
+    weekdays_eng = ["Mon", "Tue", "Wed", "Thur", "Fri", "Sat", "Sun"]
+    weekdays_kor = [
+        "월요일",
+        "화요일",
+        "수요일",
+        "목요일",
+        "금요일",
+        "토요일",
+        "일요일",
+    ]
+    for n in range(len(weekdays_eng)):
+        target_document.find_replace_all(weekdays_eng[n], weekdays_kor[n])
 
 
-def show_absence_frame(event=None):
+def show_absence_frame(*args):
     main_frame.pack_forget()
     abs_frame.pack(fill="both", expand=True)
     display_absences()
 
 
-def show_main_frame(event=None):
+def show_main_frame(*args):
     abs_frame.pack_forget()
     main_frame.pack(fill="both", expand=True)
 
