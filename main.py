@@ -9,22 +9,24 @@ from pyhwpx import Hwp
 # 담임교사 성명 설정
 teacher_name = ""
 
+conn = sqlite3.connect("attendance.db")
+cursor = conn.cursor()
+
 
 # 데이터베이스 초기화
 def initialize_database():
-    conn = sqlite3.connect("attendance.db")
-    cursor = conn.cursor()
-    cursor.execute(
-        """CREATE TABLE IF NOT EXISTS absences (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name TEXT NOT NULL,
-                        start_date TEXT NOT NULL,
-                        end_date TEXT NOT NULL,
-                        reason TEXT NOT NULL,
-                        detailed_reason TEXT)"""
-    )
-    conn.commit()
-    conn.close()
+    with conn:
+        cursor.execute(
+            """CREATE TABLE IF NOT EXISTS absences (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            std_class INTEGER NOT NULL,
+                            std_no INTEGER NOT NULL,
+                            name TEXT NOT NULL,
+                            start_date TEXT NOT NULL,
+                            end_date TEXT NOT NULL,
+                            reason TEXT NOT NULL,
+                            detailed_reason TEXT)"""
+        )
 
 
 def set_teacher_name(*args):
@@ -42,18 +44,23 @@ def edit_teacher_name(*args):
 # 데이터 초기화 함수
 def reset_database(*args):
     if messagebox.askyesno("데이터 초기화", "정말로 모든 데이터를 초기화하시겠습니까?"):
-        conn = sqlite3.connect("attendance.db")
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM absences")
-        conn.commit()
-        conn.close()
-        display_absences()
-        messagebox.showinfo("초기화 완료", "모든 데이터가 초기화되었습니다.")
+        with conn:
+            cursor.execute("DELETE FROM absences")
+            display_absences()
+            messagebox.showinfo("초기화 완료", "모든 데이터가 초기화되었습니다.")
 
 
 # 결석 데이터 저장
 def save_absence(*args):
-    name = name_entry.get()
+    student_no = stdNo_entry.get()
+    if find_student(int(student_no)) == None:
+        return
+
+    # 학생의 반과 번호를 Dictionary형태로 return
+    std_info = find_student(int(student_no))
+    name = std_info["name"]
+    stdClass = int(std_info["class"])
+    stdNo = int(std_info["no"])
     start_year = start_year_combobox.get()
     start_month = start_month_combobox.get()
     start_day = start_day_combobox.get()
@@ -73,17 +80,16 @@ def save_absence(*args):
     start_date = f"{start_year}-{start_month}-{start_day}"
     end_date = f"{end_year}-{end_month}-{end_day}"
 
-    conn = sqlite3.connect("attendance.db")
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO absences (name, start_date, end_date, reason, detailed_reason) VALUES (?, ?, ?, ?, ?)",
-        (name, start_date, end_date, reason, detailed_reason),
-    )
-    conn.commit()
-    conn.close()
+    with conn:
+        cursor.execute(
+            "INSERT INTO absences (std_class, std_no, name, start_date, end_date, reason, detailed_reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (stdClass, stdNo, name, start_date, end_date, reason, detailed_reason),
+        )
 
     display_absences()
-    name_entry.delete(0, tk.END)
+
+    # 입력 칸을 모두 초기화
+    stdNo_entry.delete(0, tk.END)
     start_year_combobox.set("")
     start_month_combobox.set("")
     start_day_combobox.set("")
@@ -94,21 +100,48 @@ def save_absence(*args):
     detailed_reason_entry.delete(0, tk.END)
 
 
+def convert_stdInfo_to_dataframe():
+    base = os.getcwd()
+    file_path = base + "/excel_form/students.xlsx"
+
+    students_df = pd.read_excel(file_path)
+    students_df.set_index("번호", inplace=True)
+
+    return students_df
+
+
+def find_student(idx):
+    std_info = {}
+    if idx not in students_df.index.values:
+        messagebox.showerror("학생 조회 실패", "입력한 번호의 학생 정보가 없습니다.")
+        return
+    else:
+        std_name, std_class = (
+            students_df.loc[idx]["이름"],
+            students_df.loc[idx]["반"],
+        )
+
+        std_info["name"] = std_name
+        std_info["class"] = std_class
+        std_info["no"] = idx
+
+    return std_info
+
+
 # 저장된 데이터 표시
 def display_absences():
     for row in tree.get_children():
         tree.delete(row)
 
-    conn = sqlite3.connect("attendance.db")
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT id, name, start_date, end_date, reason, detailed_reason FROM absences"
-    )
-    rows = cursor.fetchall()
-    conn.close()
+    with conn:
+        # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
+        cursor.execute(
+            "SELECT id, std_class, std_no, name, start_date, end_date, reason, detailed_reason FROM absences"
+        )
+        rows = cursor.fetchall()
 
-    for row in rows:
-        tree.insert("", tk.END, values=row, iid=row[0])
+        for row in rows:
+            tree.insert("", tk.END, values=row, iid=row[0])  # iid stands for Item ID
 
 
 def delete_absence(*args):
@@ -136,26 +169,32 @@ def edit_absence(*args):
 
     item_id = selected_item[0]
     values = tree.item(item_id)["values"]
+    print(values)
 
-    name_entry.delete(0, tk.END)
-    name_entry.insert(0, values[1])
+    # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
+    stdNo_entry.delete(0, tk.END)
+    stdNo_entry.insert(0, values[2])
 
-    start_year, start_month, start_day = values[2].split("-")
+    start_year, start_month, start_day = values[3].split("-")
     start_year_combobox.set(start_year)
     start_month_combobox.set(start_month)
     start_day_combobox.set(start_day)
 
-    end_year, end_month, end_day = values[3].split("-")
+    end_year, end_month, end_day = values[4].split("-")
     end_year_combobox.set(end_year)
     end_month_combobox.set(end_month)
     end_day_combobox.set(end_day)
 
-    reason_combobox.set(values[4])
+    reason_combobox.set(values[5])
     detailed_reason_entry.delete(0, tk.END)
-    detailed_reason_entry.insert(0, values[5])
+    detailed_reason_entry.insert(0, values[6])
 
     def update_absence():
-        name = name_entry.get()
+        # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
+        std_no = stdNo_entry.get()
+        stdInfo = find_student(std_no)
+        name = stdInfo["name"]
+        std_class = stdInfo["class"]
         start_year = start_year_combobox.get()
         start_month = start_month_combobox.get()
         start_day = start_day_combobox.get()
@@ -177,9 +216,19 @@ def edit_absence(*args):
 
         conn = sqlite3.connect("attendance.db")
         cursor = conn.cursor()
+        # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
         cursor.execute(
-            "UPDATE absences SET name = ?, start_date = ?, end_date = ?, reason = ?, detailed_reason = ? WHERE id = ?",
-            (name, start_date, end_date, reason, detailed_reason, values[0]),
+            "UPDATE absences SET std_class = ?, std_no = ?, name = ?, start_date = ?, end_date = ?, reason = ?, detailed_reason = ? WHERE id = ?",
+            (
+                std_class,
+                std_no,
+                name,
+                start_date,
+                end_date,
+                reason,
+                detailed_reason,
+                values[0],
+            ),
         )
         conn.commit()
         conn.close()
@@ -210,10 +259,9 @@ def extract_date_info(from_date, to_date):
 
 
 def generate_absence_report(*args):
+    # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
     conn = sqlite3.connect("attendance.db")
-    query = (
-        "SELECT id, name, start_date, end_date, reason, detailed_reason FROM absences"
-    )
+    query = "SELECT id, std_class, std_no, name, start_date, end_date, reason, detailed_reason FROM absences"
     df = pd.read_sql_query(query, conn)
 
     df = df.astype({"start_date": "datetime64[ns]", "end_date": "datetime64[ns]"})
@@ -240,6 +288,9 @@ def generate_absence_report(*args):
 
     # 반복문을 활용하여 각 결석계의 양식에 데이터 입력하기
     for n in range(num_of_absent_students):
+        # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
+        std_class = df.iloc[n]["std_class"]
+        std_no = df.iloc[n]["std_no"]
         student_name = df.iloc[n]["name"]
         from_day = df.iloc[n]["start_date"]
         until_day = df.iloc[n]["end_date"]
@@ -248,13 +299,13 @@ def generate_absence_report(*args):
 
         # 담임 교사 이름 입력
         hwp.move_to_field(f"teacher_name_1{{{{{n}}}}}")
-        hwp.insert_text(teacher_name)
+        hwp.insert_text(" ".join(teacher_name))
         hwp.move_to_field(f"teacher_name_2{{{{{n}}}}}")
-        hwp.insert_text(teacher_name)
+        hwp.insert_text(" ".join(teacher_name))
 
         # 학생 이름 입력
         hwp.move_to_field(f"name{{{{{n}}}}}")
-        hwp.insert_text(student_name)
+        hwp.insert_text(" ".join(student_name))
 
         # 결석 종류 입력
         hwp.move_to_field(f"absence_type{{{{{n}}}}}")
@@ -266,6 +317,7 @@ def generate_absence_report(*args):
             hwp.insert_text("인정 (   )   질병 (   )   기타 ( O )")
         else:
             pass
+
         # 상세 결석 사유 입력
         hwp.move_to_field(f"detailed_reason{{{{{n}}}}}")
         hwp.insert_text(detailed_absence_reason)
@@ -315,6 +367,11 @@ def generate_absence_report(*args):
         hwp.move_to_field(f"confirmed_date_2{{{{{n}}}}}")
         hwp.insert_text(confirmed_date_string)
 
+        # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
+        hwp.move_to_field(f"class_and_std_num{{{{{n}}}}}")
+        class_and_std_num = str(std_class) + " 반 " + str(std_no) + " 번"
+        hwp.insert_text(class_and_std_num)
+
     convert_engWeekdays_to_korWeekdays(hwp)
 
     # 다른이름으로 저장
@@ -323,7 +380,7 @@ def generate_absence_report(*args):
 
 def convert_engWeekdays_to_korWeekdays(hwpObject):
     target_document = hwpObject
-    weekdays_eng = ["Mon", "Tue", "Wed", "Thur", "Fri", "Sat", "Sun"]
+    weekdays_eng = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     weekdays_kor = [
         "월요일",
         "화요일",
@@ -359,6 +416,8 @@ style = ttk.Style(root)
 style.theme_use("clam")  # put the theme name here, that you want to use
 
 initialize_database()
+students_df = convert_stdInfo_to_dataframe()
+
 
 # 메인 화면
 main_frame = tk.Frame(root)
@@ -427,13 +486,13 @@ abs_frame = tk.Frame(root)
 abs_label = tk.Label(abs_frame, text="결석생 등록 화면", font=("Arial", 20))
 abs_label.pack(pady=20)
 
-# 이름 입력
-name_label = tk.Label(abs_frame, text="이름:", font=("Arial", 14))
-name_label.pack(anchor="w", padx=10)
-name_entry = ttk.Entry(
+# 학생 번호 입력
+stdNo_label = tk.Label(abs_frame, text="번호:", font=("Arial", 14))
+stdNo_label.pack(anchor="w", padx=10)
+stdNo_entry = ttk.Entry(
     abs_frame,
 )
-name_entry.pack(fill="x", ipadx=30, ipady=6, padx=10, pady=10)
+stdNo_entry.pack(fill="x", ipadx=30, ipady=6, padx=10, pady=10)
 
 # 결석 기간 입력
 period_label = tk.Label(abs_frame, text="결석 기간 (시작일):", font=("Arial", 14))
@@ -502,21 +561,35 @@ save_button.pack(pady=10)
 root.bind("<Return>", save_absence)
 
 # 데이터 표시
+# id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
 tree = ttk.Treeview(
     abs_frame,
-    columns=("id", "name", "start_date", "end_date", "reason", "detailed_reason"),
+    columns=(
+        "id",
+        "std_class",
+        "std_no",
+        "name",
+        "start_date",
+        "end_date",
+        "reason",
+        "detailed_reason",
+    ),
     show="headings",
 )
 tree.heading("id", text="ID")
-tree.column("id", width=50, anchor="center")
+tree.column("id", width=40, anchor="center")
+tree.heading("std_class", text="반")
+tree.column("std_class", width=40, anchor="center")
+tree.heading("std_no", text="번호")
+tree.column("std_no", width=40, anchor="center")
 tree.heading("name", text="이름")
-tree.column("name", width=50, anchor="center")
+tree.column("name", width=40, anchor="center")
 tree.heading("start_date", text="결석 시작일")
 tree.column("start_date", width=50, anchor="center")
 tree.heading("end_date", text="결석 종료일")
 tree.column("end_date", width=50, anchor="center")
 tree.heading("reason", text="결석 종류")
-tree.column("reason", width=50, anchor="center")
+tree.column("reason", width=40, anchor="center")
 tree.heading("detailed_reason", text="결석 사유", anchor="center")
 tree.column("detailed_reason", width=50, anchor="center")
 tree.pack(fill="both", expand=True, padx=10, pady=10)
