@@ -10,6 +10,9 @@ class InputForm(ttk.Frame):
     def __init__(self, parent, database, back_to_menu):
         super().__init__(parent)
 
+        # 업데이트 시 선택 항목
+        self.locked_item = {"id": None}
+
         # DB Manager
         self.db = database
         self.back_to_menu = back_to_menu
@@ -213,6 +216,9 @@ class InputForm(ttk.Frame):
         self.display_absences()
 
         # 입력 칸을 모두 초기화
+        self.clear_all_input_entry()
+
+    def clear_all_input_entry(self):
         self.stdNo_entry.delete(0, tk.END)
         self.start_year_combobox.set("")
         self.start_month_combobox.set("")
@@ -288,9 +294,17 @@ class InputForm(ttk.Frame):
 
     def edit_absence(self, event=None):
         selected_item = self.tree.selection()
+
         if not selected_item:
             messagebox.showwarning("선택 오류", "수정할 항목을 선택해주세요.")
             return
+
+        if self.locked_item["id"] is None:
+            # 첫 선택 → 고정
+            self.locked_item["id"] = selected_item[0]
+
+        self.edit_button.config(state="disabled")
+
         # 업데이트 버튼
         self.update_button = tk.Button(
             self, text="업데이트", command=self.update_absence
@@ -323,7 +337,11 @@ class InputForm(ttk.Frame):
             messagebox.showwarning("선택 오류", "수정할 항목을 선택해주세요.")
             return
 
-        item_id = selected_item[0]
+        if selected_item[0] != self.locked_item["id"]:
+            print(f"선택된 항목이 수정하려는 항목과 다릅니다.")
+            self.tree.selection_set(self.locked_item["id"])
+
+        item_id = self.locked_item["id"]
         values = self.tree.item(item_id)["values"]
 
         # id, std_class, std_no, name, start_date, end_date, abs_type, reason
@@ -367,6 +385,15 @@ class InputForm(ttk.Frame):
             )
         self.display_absences()
         self.update_button.destroy()
+
+        self.clear_all_input_entry()
+        self.unlock()
+        self.edit_button.config(state="normal")
+
+    def unlock(self):
+        # 락 해제
+        self.locked_item["id"] = None
+        self.tree.selection_remove(self.tree.selection())  # 선택 해제
 
     def create_report(self, *args):
         df = self.create_dataframe_from_sqlite()

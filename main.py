@@ -33,7 +33,10 @@ class Application(tk.Tk):
         self.bind("<F4>", self.inputForm.reset_database)  # 결석생 데이터 초기화
         self.bind("<F5>", self.inputForm.create_report)  # 결석계 생성
         self.bind("<F8>", self.menu.turn_off)  # 프로그램 종료
+        self.bind("<Return>", self.inputForm.save_absence)
         self.bind("<Control-m>", self.inputForm.edit_absence)
+        self.bind("<Control-d>", self.inputForm.delete_absence)
+        self.bind("<Control-b>", self.inputForm.back_to_menu)
 
 
 Application("결석계 자동화 프로그램 Ver 1.0")
