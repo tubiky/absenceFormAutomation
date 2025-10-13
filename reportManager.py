@@ -23,6 +23,11 @@ class ReportManager:
     def fill_in_absence_info(self):
         num_of_copies = len(self.df)
 
+        # df를 학번 또는 이름순 정렬 > 결석 시작일 기준 오름차순 정렬 > 인덱스 재설정 과정 추가하기
+        self.df = self.df.sort_values(
+            by=["std_no", "start_date"], ascending=[True, True], ignore_index=True
+        )
+
         # 반복문을 활용하여 각 결석계의 양식에 데이터 입력하기
         for n in range(num_of_copies):
             # id, std_class, std_no, name, start_date, end_date, abs_type, reason
