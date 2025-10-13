@@ -105,11 +105,25 @@ class InputForm(ttk.Frame):
         self.detailed_reason_entry = ttk.Entry(self)
         self.detailed_reason_entry.pack(fill="x", ipadx=30, ipady=6, padx=10, pady=10)
 
+        self.middle_frame = tk.Frame(self)
+        self.middle_frame.pack(fill="x", padx=10)
+
         # 저장 버튼
         self.save_button = tk.Button(
-            self, text="결석생 등록[Enter]", command=self.save_absence
+            self.middle_frame, text="결석생 등록[Enter]", command=self.save_absence
         )
-        self.save_button.pack(pady=10)
+        self.save_button.pack(side="left", pady=10)
+
+        # 정렬 버튼
+        self.sort_by_date_button = tk.Button(
+            self.middle_frame, text="날짜 > 번호순 정렬", command=self.sort_by_date
+        )
+        self.sort_by_date_button.pack(side="right", pady=10)
+
+        self.sort_by_no_button = tk.Button(
+            self.middle_frame, text="번호순 정렬", command=self.sort_by_number
+        )
+        self.sort_by_no_button.pack(side="right", pady=10)
 
         # 데이터 표시
         # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
@@ -165,6 +179,39 @@ class InputForm(ttk.Frame):
 
     def pack_input_form(self):
         self.pack(fill="both", expand=True)
+
+    # 월별 결석생 입력을 완료 후 데이터를 1) 결석일 시작 날짜 기준, 2) 결석일이 동일한 경우 번호순 오름차순 정렬
+    def sort_by_date(self):
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+
+        with self.db.conn:
+            # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
+            self.db.cursor.execute(
+                "SELECT id, std_class, std_no, name, start_date, end_date, abs_type, reason FROM absences ORDER BY start_date ASC, std_no ASC;"
+            )
+            rows = self.db.cursor.fetchall()
+
+            for row in rows:
+                self.tree.insert(
+                    "", tk.END, values=row, iid=row[0]
+                )  # iid stands for Item ID
+
+    def sort_by_number(self):
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+
+        with self.db.conn:
+            # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
+            self.db.cursor.execute(
+                "SELECT id, std_class, std_no, name, start_date, end_date, abs_type, reason FROM absences ORDER BY std_no ASC, start_date ASC;"
+            )
+            rows = self.db.cursor.fetchall()
+
+            for row in rows:
+                self.tree.insert(
+                    "", tk.END, values=row, iid=row[0]
+                )  # iid stands for Item ID
 
     # 결석 데이터 저장
     def save_absence(self, event=None):

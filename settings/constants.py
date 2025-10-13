@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from datetime import date, datetime, timedelta
 
+
 CURRENT_PATH = os.getcwd()
 
 FONT_LARGE = ("Arial", 20)

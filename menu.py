@@ -14,7 +14,9 @@ class Menu(ttk.Frame):
         self.inputForm = inputForm
 
         # 위젯 생성
-        self.label = tk.Label(master=self, text="담임교사 성명:", font=FONT_NORMAL)
+        self.label = tk.Label(
+            master=self, text=f"담임교사 성명:{utils.teacher_name}", font=FONT_NORMAL
+        )
         self.teacher_enroll_btn = tk.Button(
             master=self,
             text="담임교사 성명 등록<F2>",
@@ -68,6 +70,8 @@ class Menu(ttk.Frame):
         if name:
             utils.teacher_name = name
             self.label.config(text=f"담임교사 성명: {utils.teacher_name}")
+
+        utils.save_user(name)
 
     def turn_off(self, *args):
         sys.exit()

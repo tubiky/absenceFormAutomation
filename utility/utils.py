@@ -1,10 +1,28 @@
 import pandas as pd
+from configparser import ConfigParser
 from datetime import date, datetime, timedelta
 from tkinter import messagebox
 from settings.constants import *
 
 
-teacher_name = ""
+def save_user(user_name):
+    cfg = ConfigParser()
+    cfg["교사명"] = {"이름": user_name}
+
+    with open("config.ini", "w") as f:
+        cfg.write(f)
+
+
+def load_user() -> str:
+    cfg = ConfigParser()
+    cfg.read("config.ini")
+
+    name = cfg["교사명"]["이름"]
+
+    return name
+
+
+teacher_name = load_user()
 
 
 def load_students_data(path):
