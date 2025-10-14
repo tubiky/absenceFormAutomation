@@ -125,6 +125,12 @@ class InputForm(ttk.Frame):
         )
         self.sort_by_no_button.pack(side="right", pady=10)
 
+        # 인정 결성생만 조회 버튼
+        self.admitted_absence_filter_button = tk.Button(
+            self.middle_frame, text="인정결석생 조회", command=self.filter_admitted_absence
+        )
+        self.admitted_absence_filter_button.pack(side="right", pady=10)
+
         # 데이터 표시
         # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
         self.tree = ttk.Treeview(
@@ -180,6 +186,24 @@ class InputForm(ttk.Frame):
     def pack_input_form(self):
         self.pack(fill="both", expand=True)
 
+    
+    def filter_admitted_absence(self):
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+
+        with self.db.conn:
+            # id, std_class, std_no, name, start_date, end_date, reason, detailed_reason
+            self.db.cursor.execute(
+                "SELECT * FROM absences WHERE abs_type = ?", ("인정",)
+            )
+            rows = self.db.cursor.fetchall()
+
+            for row in rows:
+                self.tree.insert(
+                    "", tk.END, values=row, iid=row[0]
+                )  # iid stands for Item ID
+    
+    
     # 월별 결석생 입력을 완료 후 데이터를 1) 결석일 시작 날짜 기준, 2) 결석일이 동일한 경우 번호순 오름차순 정렬
     def sort_by_date(self):
         for row in self.tree.get_children():
