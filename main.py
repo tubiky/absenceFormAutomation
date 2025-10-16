@@ -23,7 +23,7 @@ class Application(tk.Tk):
         # Run
         self.mainloop()
 
-    def show_menu(self):
+    def show_menu(self, *args):
         self.inputForm.pack_forget()
         self.menu.pack()
 
@@ -39,4 +39,4 @@ class Application(tk.Tk):
         self.bind("<Control-b>", self.inputForm.back_to_menu)
 
 
-Application("결석계 자동화 프로그램 Ver 1.0")
+Application("결석계 자동화 프로그램 Ver 2.0")
