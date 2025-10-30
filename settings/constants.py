@@ -1,17 +1,19 @@
 import os
+from pathlib import Path
 import pandas as pd
 from datetime import date, datetime, timedelta
 
 
 CURRENT_PATH = os.getcwd()
+print(f"현재 디렉토리는 {CURRENT_PATH}")
 
 FONT_LARGE = ("Arial", 20)
 FONT_NORMAL = ("Arial", 14)
 FONT_SMALL = ("Arial", 12)
 
 
-HWP_PATH = "./hwp_file_form/결석계.hwp"
-EXCEL_PATH = "./excel_form/students.xlsx"
+HWP_PATH = CURRENT_PATH + "/hwp_file_form/결석계.hwp"
+EXCEL_PATH = CURRENT_PATH + "/excel_form/students.xlsx"
 
 
 SICK = "인정 (   )   질병 ( O )   기타 (   )"

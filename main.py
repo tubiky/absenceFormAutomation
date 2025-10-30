@@ -4,6 +4,8 @@ from databaseManager import DataManager
 from inputForm import InputForm
 from settings.constants import *
 
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 
 class Application(tk.Tk):
     def __init__(self, title):

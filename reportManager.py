@@ -70,6 +70,7 @@ class ReportManager:
             self.document.move_to_field(f"period{{{{{n}}}}}")
 
             date_info = utils.extract_date_info(from_day, until_day)
+
             start_date = (
                 date_info["year"]
                 + "년 "
