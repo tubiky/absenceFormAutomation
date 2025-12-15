@@ -103,6 +103,9 @@ def count_absent_days(from_date, to_date):
     if start > end:  # 이후의 날짜일 수록 크다고 판단
         start, end = end, start
 
+    elif start == end:
+        cnt = 1
+
     while start <= end:
         if start.weekday() < 5 and start not in HOLIDAYS_DATE:  # 0~4 = 월~금
             cnt += 1
