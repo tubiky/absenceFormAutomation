@@ -8,7 +8,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('.\\excel_form\\*.*', 'excel_form'), ('.\\hwp_file_form\\*.*', 'hwp_file_form'), ('.\\settings\\*.*', 'settings'), ('.\\utility\\*.*', 'utility'), ('.\\*.*', '.')],
+    datas=[('.\\excel_form\\students.xlsx', 'excel_form'), ('.\\hwp_file_form\\form.hwp', 'hwp_file_form'), ('.\\settings\\constants.py', 'settings'), ('.\\utility\\*.*', 'utility'), ('.\\*.*', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

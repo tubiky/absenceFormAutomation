@@ -9,7 +9,7 @@ class ReportManager:
         self.document = Hwp(new=False, visible=True)
 
     def open(self):
-        self.document.Open(CURRENT_PATH + "/hwp_file_form/결석계.hwp")
+        self.document.Open(CURRENT_PATH + "/hwp_file_form/form.hwp")
         self.document.MoveDocEnd()
         self.document.CopyPage()
 

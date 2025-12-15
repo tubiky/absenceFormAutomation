@@ -96,19 +96,18 @@ def extract_date_info(from_date, to_date):
 
 # 실제 결석일수 계산 함수
 def count_absent_days(from_date, to_date):
-    cnt = 0
     start = from_date.date()
     end = to_date.date()
 
-    if start > end:  # 이후의 날짜일 수록 크다고 판단
+    if start > end:
         start, end = end, start
 
-    elif start == end:
-        cnt = 1
+    cnt = 0
+    current = start
 
-    while start <= end:
-        if start.weekday() < 5 and start not in HOLIDAYS_DATE:  # 0~4 = 월~금
+    while current <= end:
+        if current.weekday() < 5 and current not in HOLIDAYS_DATE:
             cnt += 1
-        start += timedelta(days=1)
+        current += timedelta(days=1)
 
     return str(cnt)
